@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Server</title>
+</head>
+
+<body>
+    <div style="display: flex; justify-content: center; align-items: center; height: 90vh; width: 80vw; margin: auto;">
+        <h1 id="content" style="font-size: 2cm;">Hello from the server</h1>
+    </div>
+    <script>
+        let content = document.getElementById("content");
+        let url = document.URL.split('/').slice(3,);
+        if (url[0] === "") {
+            content.innerText = "Hello from the server"
+        }
+        else if (url[0] === "ping") {
+            content.innerText = "Pong!!!";
+        }
+    </script>
+</body>
+
+</html>
