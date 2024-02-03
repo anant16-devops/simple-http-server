@@ -5,21 +5,69 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Web Server</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+        }
+
+        #content {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 90vh;
+            width: 80vw;
+            margin: auto;
+        }
+
+        #inner-content {
+            width: 100%;
+            max-width: 600px;
+            /* Adjust the max-width based on your design */
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        h2 {
+            margin-bottom: 10px;
+        }
+
+        ul {
+            padding-left: 20px;
+        }
+
+        li {
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 768px) {
+
+            /* Adjust styles for smaller screens */
+            #content {
+                height: 90vh;
+            }
+
+            #inner-content {
+                width: 90%;
+                margin: auto;
+            }
+        }
+    </style>
 </head>
 
 <body>
-    <div
-        style="display: flex; justify-content: center; align-items: center; height: 90vh; width: 80vw; margin: auto;">
-        <div id="content" style="font-family: sans-serif; height: 45vh; width: 40vw; justify-content: left;">
-            <section style="padding-left: 15px;">
+    <div id="content">
+        <div id="inner-content">
+            <section>
                 <h2>Simple HTTP Server</h2>
-                <p>Created a minimalistic HTTP Server in Python to serve static files using the Sockets API.</p>
+                <p>A minimalistic HTTP Server in Python to serve static files using the Sockets API.</p>
                 <p>Implemented basic handling of GET requests</p>
                 <p>TODO:</p>
                 <ul>
-                    <li style="padding-bottom: 10px;">HEAD HTTP method to be implemented</li>
-                    <li style="padding-bottom: 10px;">Multiple Client request handling to be implemented</li>
-                    <li style="padding-bottom: 10px;">MIME Type Handling to be implemented</li>
+                    <li>HEAD HTTP method to be implemented</li>
+                    <li>Multiple Client request handling to be implemented</li>
+                    <li>MIME Type Handling to be implemented</li>
                 </ul>
             </section>
         </div>
