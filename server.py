@@ -42,12 +42,14 @@ def start_server():
 def send_http_response(
     client_socket, response_body, status_code, status_message, content_type="text/plain"
 ):
-    response = f"HTTP/1.1 {status_code} {status_message}\r\nContent-Length: {len(response_body)}\r\nContent-Type:{content_type}\r\n\r\n{response_body}"
-    client_socket.sendall(response.encode("utf-8"))
+    try:
+        response = f"HTTP/1.1 {status_code} {status_message}\r\nContent-Length: {len(response_body)}\r\nContent-Type:{content_type}\r\n\r\n{response_body}"
+        client_socket.sendall(response.encode("utf-8"))
+    except BrokenPipeError:
+        print("Client Disconnected")
 
 
 def handle_unsupported_request(client_socket):
-    message = "Not Implemented"
     response_data = "Not Implemented: Unsupported HTTP method"
     send_http_response(client_socket, response_data, 501, get_status_texts(501))
 
@@ -55,20 +57,13 @@ def handle_unsupported_request(client_socket):
 def handle_request(client_socket):
     with client_socket:
         data = client_socket.recv(1024)
-        try:
-            # header, *_ = data.split("\r\n\r\n")
-            request_data = parse_request(data)
-            print(request_data)
-
-            # response = header.split("\r\n")
-
-            # print(response)
-
-            # method, url, http_version = response[0].split(" ")
-            # response_metadata = response[1:]
-        except ValueError:
-            print("Incorrect http request format")
-            return
+        request_data = parse_request(data)
+        if len(request_data) == 0:
+            serve_error_page(client_socket, 500)
+            # send_http_response(
+            #     client_socket, get_status_texts(500), 500, get_status_texts(500)
+            # )
+        print(request_data)
 
         if request_data.get("method") != "GET":
             handle_unsupported_request(client_socket)
@@ -81,9 +76,9 @@ def handle_request(client_socket):
 def handle_get_request(client_socket, path, metadata):
     print(f"\nMetadata dictionary: {metadata}\n")
     if (path == "/" or path == "/ping") and (
-        "*/*" in metadata.get("Accept")
-        or "text/plain" in metadata.get("Accept")
-        or "text/html" in metadata.get("Accept") 
+        "*/*" in metadata.get("accept")
+        or "text/plain" in metadata.get("accept")
+        or "text/html" in metadata.get("accept")
     ):
         try:
             with open("./static/index.html", "r") as f:
@@ -93,10 +88,26 @@ def handle_get_request(client_socket, path, metadata):
                 )
         except FileNotFoundError:
             data = "Resource not found"
-            send_http_response(client_socket, data, 404, get_status_texts(404))
+            serve_error_page(client_socket, 404)
+            # send_http_response(client_socket, data, 404, get_status_texts(404))
     else:
-        data = "Not Found"
-        send_http_response(client_socket, data, 404, get_status_texts(404))
+        serve_error_page(client_socket, 404)
+
+
+def serve_error_page(client_socket, error_code):
+    file_to_serve = f"{error_code}_error_page"
+    try:
+        with open(f"./static/errors/{file_to_serve}.html", "r") as f:
+            data = f.read()
+            send_http_response(
+                client_socket,
+                data,
+                error_code,
+                get_status_texts(error_code),
+                "text/html",
+            )
+    except FileNotFoundError:
+        send_http_response(client_socket, "", 500, get_status_texts(500))
 
 
 start_server()
