@@ -67,12 +67,23 @@ def get_status_texts(status_code):
 
 
 def parse_request(request):
-    decoded_data = request.decode("utf-8")
-    header, *body = decoded_data.split("\r\n\r\n")
-    request_line, *metadata = header.split("\r\n")
-    method, path, http_version = request_line.split(" ")
-    metadata = {i.split(": ")[0]: i.split(": ")[1] for i in metadata}
+    try:
+        decoded_data: str = request.decode("utf-8")
+    except UnicodeDecodeError:
+        error = "Error Decoding response to utf-8"
+        print(error)
+        return {}
 
+    decoded_data = decoded_data.replace("\r\n", "\n")
+    try:
+        header, *body = decoded_data.split("\n\n")
+        request_line, *metadata = header.split("\n")
+        method, path, http_version = request_line.split(" ")
+        metadata = {i.split(": ")[0].lower(): i.split(": ")[1] for i in metadata}
+    except ValueError or IndexError:
+        print("Incorrect http request format")
+        return {}
+    
     return {
         "method": method,
         "path": path,
