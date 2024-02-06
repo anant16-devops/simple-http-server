@@ -12,7 +12,6 @@ This is a simple HTTP server implemented from scratch in Python. The primary goa
 1. **Running the Server** 
    ```
    python main.py [-hs <host>] [-p <port>] [-h help ]
-   
    ```
    Default host: 127.0.0.1, port: 8000
   
