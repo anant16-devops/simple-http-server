@@ -94,5 +94,11 @@ def parse_request(request):
         "body": body,
     }
 
-def arguement_parser():
-    pass
+def commandline_parser():
+    parser = argparse.ArgumentParser(prog="Simple HTTP server", usage="script.py [-h <host>] [-p <port>]")
+
+    parser.add_argument('-hs', '--host', dest='host', default='127.0.0.1', required=False, type=str, nargs='?')
+    parser.add_argument('-p', '--port', dest='port', default='8000', required=False, type=int, nargs='?')
+
+    parsed_args = parser.parse_args()
+    return (parsed_args.host, parsed_args.port)
