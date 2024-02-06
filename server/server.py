@@ -75,22 +75,30 @@ def handle_request(client_socket):
 
 def handle_get_request(client_socket, path, metadata):
     print(f"\nMetadata dictionary: {metadata}\n")
-    if (path == "/" or path == "/ping") and (
+    if (path == "/") and (
         "*/*" in metadata.get("accept")
         or "text/plain" in metadata.get("accept")
         or "text/html" in metadata.get("accept")
     ):
-        try:
-            with open("./static/index.html", "r") as f:
-                data = f.read()
-                send_http_response(
-                    client_socket, data, 200, get_status_texts(200), "text/html"
-                )
-        except FileNotFoundError:
-            data = "Resource not found"
-            serve_error_page(client_socket, 404)
-            # send_http_response(client_socket, data, 404, get_status_texts(404))
+        serve_file(client_socket, "index.html")
+    elif path == "/ping":
+        serve_file(client_socket, "pong.html")
     else:
+        serve_error_page(client_socket, 404)
+
+
+def serve_file(client_socket, file_name):
+    default_path = f"./static/{file_name}"
+    if "/" in file_name or "\\" in file_name:
+        default_path = file_name
+
+    try:
+        with open(default_path, "r") as f:
+            data = f.read()
+            send_http_response(
+                client_socket, data, 200, get_status_texts(200), "text/html"
+            )
+    except FileNotFoundError:
         serve_error_page(client_socket, 404)
 
 

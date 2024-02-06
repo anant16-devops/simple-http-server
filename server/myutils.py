@@ -1,3 +1,5 @@
+import argparse
+
 def get_status_texts(status_code):
     status_texts = {
         100: "Continue",
@@ -91,3 +93,6 @@ def parse_request(request):
         "metadata": metadata,
         "body": body,
     }
+
+def arguement_parser():
+    pass
