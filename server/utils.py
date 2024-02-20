@@ -80,6 +80,24 @@ def get_req_content_length(headers):
         return None
 
 
+def get_res_content_length(response, is_path=False):
+        if is_path:
+            try:
+                mime_type = get_mime_type(response)
+                is_binary = is_binary_mime_type(mime_type)
+                if is_binary:
+                    with open(response, 'rb') as f:
+                        return len(f.read())
+                else:
+                    with open(response, 'r') as f:
+                        return len(f.read())
+
+            except FileNotFoundError:
+                print("File not found")
+        else:
+            return len(response)
+
+
 def create_dirlist_page(directory_path, url_path):
     directory_contents = []
     try:
