@@ -14,7 +14,9 @@ This is a simple HTTP server implemented from scratch in Python. The primary goa
    python main.py [-hs <host>] [-p <port>] [-h help ]
    ```
    Default host: 127.0.0.1, port: 8000
+2. **Adding Routes** Add your customs routes in routes.py file
+3. **Adding Static Files** To add your custom static files(HTML, CSS, Js) create them inside the static folder 
   
 
 ## **Let's Collaborate!**
-I invite fellow learners and enthusiasts to join me on this journey. Any and all contributions, feedback, and insights are invaluable in shaping this project into a valuable learning resource for all.
+Any and all contributions, feedback, and insights are much appreciated and welcomed if you would like to add new features or enhance the ones that already present.
