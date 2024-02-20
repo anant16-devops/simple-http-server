@@ -72,7 +72,7 @@ def get_status_texts(status_code):
     return status_texts[status_code]
 
 
-def get_content_length(headers):
+def get_req_content_length(headers):
     has_cl = re.search(b"Content-Length: (\\d+)", headers, re.IGNORECASE)
     if has_cl:
         return int(has_cl.group(1))
