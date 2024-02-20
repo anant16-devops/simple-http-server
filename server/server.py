@@ -144,9 +144,10 @@ def handle_get_request(client_socket, getreq_data, directory):
         accept_headers = getreq_data.get("metadata").get("accept")
         request_mime_type = get_mime_type(path)
         if any(header in accept_headers for header in allowed_headers):
-            for route in routes:
-                if route.get(path, ""):
-                    serve_file(client_socket, route[path])
+            if any(path in route for route in routes):
+                for route in routes:
+                    if route.get(path, ""):
+                        serve_file(client_socket, route[path])
             else:
                 serve_error_page(client_socket, 404)
         else:
@@ -158,14 +159,15 @@ def handle_get_request(client_socket, getreq_data, directory):
 
 def handle_head_request(client_socket, req_headers):
     resource_path = req_headers.get("path")
-    for route in routes:
-        if route.get(resource_path, ""):
-            file_path = os.path.normpath(os.path.join(ROOT_PATH, route[resource_path].lstrip("/")))
-            content_type = get_mime_type(file_path)
-            response_header = f"HTTP/1.1 200 {get_status_texts(200)}\r\nContent-Length: {os.path.getsize(file_path)}\r\nContent-Type: {content_type}\r\n\r\n"
-            client_socket.sendall(response_header.encode('utf-8'))
-        else:
-            serve_error_page(client_socket, 404)
+    if any(resource_path in route for route in routes):
+        for route in routes:
+            if route.get(resource_path, ""):
+                file_path = os.path.normpath(os.path.join(ROOT_PATH, route[resource_path].lstrip("/")))
+                content_type = get_mime_type(file_path)
+                response_header = f"HTTP/1.1 200 {get_status_texts(200)}\r\nContent-Length: {os.path.getsize(file_path)}\r\nContent-Type: {content_type}\r\n\r\n"
+                client_socket.sendall(response_header.encode('utf-8'))
+    else:
+        serve_error_page(client_socket, 404)
 
 
 def handle_directory_listing(client_socket, directory_path, url_path):
