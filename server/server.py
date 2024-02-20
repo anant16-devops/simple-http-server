@@ -154,12 +154,18 @@ def handle_get_request(client_socket, getreq_data, directory):
         accept_headers = getreq_data.get("metadata").get("accept")
         request_mime_type = get_mime_type(path)
         if any(header in accept_headers for header in allowed_headers):
-            if any(path in route for route in routes):
-                for route in routes:
-                    if route.get(path, ""):
-                        serve_file(client_socket, route[path])
+            clean_path = os.path.normpath(
+                os.path.join(ROOT_PATH, parse_path(path, encode=False).lstrip("/"))
+            )
+            if os.path.isfile(clean_path):
+                serve_file(client_socket, parse_path(path, encode=False))
             else:
-                serve_error_page(client_socket, 404)
+                if any(path in route for route in routes):
+                    for route in routes:
+                        if route.get(path, ""):
+                            serve_file(client_socket, route[path])
+                else:
+                    serve_error_page(client_socket, 404)
         else:
             message = "415 Unsupported Media Type"
             send_http_response(
