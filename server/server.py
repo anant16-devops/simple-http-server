@@ -7,7 +7,7 @@ from .utils import (
     get_status_texts,
     commandline_parser,
     get_mime_type,
-    get_content_length,
+    get_req_content_length,
     is_binary_mime_type,
     parse_request,
     create_dirlist_page,
@@ -48,16 +48,17 @@ def send_http_response(
     response_body,
     status_code,
     status_message,
+    content_len,
     content_type="text/plain",
     encoding="utf-8",
 ):
     try:
         if is_binary_mime_type(content_type):
-            response_header = f"HTTP/1.1 {status_code} {status_message}\r\nContent-Length: {len(response_body)}\r\nContent-Type: {content_type}\r\n\r\n"
+            response_header = f"HTTP/1.1 {status_code} {status_message}\r\nContent-Length: {content_len}\r\nContent-Type: {content_type}\r\n\r\n"
             client_socket.sendall(response_header.encode(encoding))
             client_socket.sendall(response_body)
         else:
-            response = f"HTTP/1.1 {status_code} {status_message}\r\nContent-Length: {len(response_body)}\r\nContent-Type: {content_type}\r\n\r\n{response_body}"
+            response = f"HTTP/1.1 {status_code} {status_message}\r\nContent-Length: {content_len}\r\nContent-Type: {content_type}\r\n\r\n{response_body}"
             client_socket.sendall(response.encode(encoding))
 
     except BrokenPipeError as pipe_error:
@@ -69,7 +70,7 @@ def send_http_response(
 
 def handle_unsupported_request(client_socket):
     err_page = create_error_page(501)
-    send_http_response(client_socket, err_page, 501, get_status_texts(501), "text/html")
+    send_http_response(client_socket, err_page, 501, get_status_texts(501), len(err_page), "text/html")
 
 
 def handle_request(client_socket: socket.socket, directory=None):
@@ -89,7 +90,7 @@ def handle_request(client_socket: socket.socket, directory=None):
                     header_buffer = buffer[:header_index]
                     body_buffer = buffer[header_index:]
 
-                    has_contentlength = get_content_length(header_buffer)
+                    has_contentlength = get_req_content_length(header_buffer)
                     if has_contentlength:
                         while len(body_buffer) < has_contentlength:
                             body_data = client_socket.recv(1024)
@@ -107,11 +108,13 @@ def handle_request(client_socket: socket.socket, directory=None):
 
             request_data = parse_request(buffer)
             if len(request_data) == 0:
+                message = "Incorrect http request format"
                 send_http_response(
                     client_socket,
-                    "Incorrect http request format",
+                    message,
                     400,
                     get_status_texts(400),
+                    len(message)
                 )
             print(request_data)
 
@@ -147,8 +150,9 @@ def handle_get_request(client_socket, getreq_data, directory):
             else:
                 serve_error_page(client_socket, 404)
         else:
+            message = "415 Unsupported Media Type"
             send_http_response(
-                client_socket, "415 Unsupported Media Type", 415, get_status_texts(415)
+                client_socket, message, 415, get_status_texts(415), len(message)
             )
 
 
@@ -174,7 +178,7 @@ def handle_directory_listing(client_socket, directory_path, url_path):
             serve_error_page(client_socket, 404)
         else:
             send_http_response(
-                client_socket, page, 200, get_status_texts(200), "text/html"
+                client_socket, page, 200, get_status_texts(200), len(page), "text/html"
             )
     elif os.path.isfile(decoded_path):
         serve_file(client_socket, decoded_path, True)
@@ -193,7 +197,7 @@ def serve_file(client_socket, file_path: str, directory_serve=False):
                 with open(norm_path, "r") as f:
                     data = f.read()
                     send_http_response(
-                        client_socket, data, 200, get_status_texts(200), mime_type
+                        client_socket, data, 200, get_status_texts(200), os.path.getsize(norm_path), mime_type
                     )
             except FileNotFoundError:
                 print("File does not exist")
@@ -208,33 +212,33 @@ def serve_file(client_socket, file_path: str, directory_serve=False):
             print("File does not exist")
             serve_error_page(client_socket, 404)
     else:
-        norm_path = os.path.normpath(file_path)
-        mime_type = get_mime_type(norm_path)
+        norm_path_d = os.path.normpath(file_path)
+        mime_type = get_mime_type(norm_path_d)
         try:
             if is_binary_mime_type(mime_type):
-                with open(norm_path, "rb") as f:
+                with open(norm_path_d, "rb") as f:
                     data = f.read()
                     send_http_response(
-                        client_socket, data, 200, get_status_texts(200), mime_type
+                        client_socket, data, 200, get_status_texts(200), os.path.getsize(norm_path_d), mime_type
                     )
             else:
-                with open(norm_path, "r") as f:
+                with open(norm_path_d, "r") as f:
                     data = f.read()
                     send_http_response(
-                        client_socket, data, 200, get_status_texts(200), mime_type
+                        client_socket, data, 200, get_status_texts(200), os.path.getsize(norm_path_d), mime_type
                     )
         except FileNotFoundError:
             print("File does not exist")
             serve_error_page(client_socket, 404)
         except UnicodeDecodeError:
-            print(f"UnicodeDecodeError on file {norm_path}")
+            print(f"UnicodeDecodeError on file {norm_path_d}")
             serve_error_page(client_socket, 500)
 
 
 def serve_error_page(client_socket, error_code):
     err_page = create_error_page(error_code)
     send_http_response(
-        client_socket, err_page, error_code, get_status_texts(error_code), "text/html"
+        client_socket, err_page, error_code, get_status_texts(error_code), len(err_page), "text/html"
     )
 
 
