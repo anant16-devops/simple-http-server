@@ -1,5 +1,6 @@
 import socket
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from routes import routes
 import os
 from .utils import (
@@ -17,7 +18,7 @@ from .utils import (
 )
 
 ROOT_PATH = "./static/"
-
+MAX_THREADS = 10
 
 def setup_logger():
     pass
@@ -25,23 +26,23 @@ def setup_logger():
 
 def start_server():
     host, port, directory = commandline_parser()
+    with ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            sock.bind((host, port))
+            sock.listen()
+            print(f"Listening on {host}:{port}")
 
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        sock.bind((host, port))
-        sock.listen()
-        print(f"Listening on {host}:{port}")
-
-        while True:
-            c_socket, c_address = sock.accept()
-            print(f"Connected to {c_address}")
-            handle_request(c_socket, directory)
-    except KeyboardInterrupt:
-        print("Server terminated by user")
-    # except Exception as e:
-    #         print(f"Error: {e}")
-    finally:
-        sock.close()
+            while True:
+                c_socket, c_address = sock.accept()
+                print(f"Connected to {c_address}")
+                executor.submit(handle_request, c_socket, directory)
+        except KeyboardInterrupt:
+            print("Server terminated by user")
+        # except Exception as e:
+        #         print(f"Error: {e}")
+        finally:
+            sock.close()
 
 
 def send_http_response(
