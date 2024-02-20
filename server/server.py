@@ -115,12 +115,14 @@ def handle_request(client_socket: socket.socket, directory=None):
                 )
             print(request_data)
 
-            if request_data["headers"].get("method") != "GET":
-                handle_unsupported_request(client_socket)
-            else:
+            if request_data["headers"].get("method") == "GET":
                 handle_get_request(
                     client_socket, request_data.get("headers"), directory
                 )
+            elif request_data["headers"].get("method") == "HEAD":
+                handle_head_request(client_socket, request_data.get("headers"))
+            else:
+                handle_unsupported_request(client_socket)
 
     except KeyError:
         print("Failed to Parse request")
@@ -148,6 +150,18 @@ def handle_get_request(client_socket, getreq_data, directory):
             send_http_response(
                 client_socket, "415 Unsupported Media Type", 415, get_status_texts(415)
             )
+
+
+def handle_head_request(client_socket, req_headers):
+    resource_path = req_headers.get("path")
+    for route in routes:
+        if route.get(resource_path, ""):
+            file_path = os.path.normpath(os.path.join(ROOT_PATH, route[resource_path].lstrip("/")))
+            content_type = get_mime_type(file_path)
+            response_header = f"HTTP/1.1 200 {get_status_texts(200)}\r\nContent-Length: {os.path.getsize(file_path)}\r\nContent-Type: {content_type}\r\n\r\n"
+            client_socket.sendall(response_header.encode('utf-8'))
+        else:
+            serve_error_page(client_socket, 404)
 
 
 def handle_directory_listing(client_socket, directory_path, url_path):
