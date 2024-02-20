@@ -20,6 +20,7 @@ from .utils import (
 ROOT_PATH = "./static/"
 MAX_THREADS = 10
 
+
 def setup_logger():
     pass
 
@@ -72,7 +73,14 @@ def send_http_response(
 
 def handle_unsupported_request(client_socket):
     err_page = create_error_page(501)
-    send_http_response(client_socket, err_page, 501, get_status_texts(501), get_res_content_length(err_page), "text/html")
+    send_http_response(
+        client_socket,
+        err_page,
+        501,
+        get_status_texts(501),
+        get_res_content_length(err_page),
+        "text/html",
+    )
 
 
 def handle_request(client_socket: socket.socket, directory=None):
@@ -116,7 +124,7 @@ def handle_request(client_socket: socket.socket, directory=None):
                     message,
                     400,
                     get_status_texts(400),
-                    get_res_content_length(message)
+                    get_res_content_length(message),
                 )
             print(request_data)
 
@@ -155,7 +163,11 @@ def handle_get_request(client_socket, getreq_data, directory):
         else:
             message = "415 Unsupported Media Type"
             send_http_response(
-                client_socket, message, 415, get_status_texts(415), get_res_content_length(message)
+                client_socket,
+                message,
+                415,
+                get_status_texts(415),
+                get_res_content_length(message),
             )
 
 
@@ -164,11 +176,13 @@ def handle_head_request(client_socket, req_headers):
     if any(resource_path in route for route in routes):
         for route in routes:
             if route.get(resource_path, ""):
-                file_path = os.path.normpath(os.path.join(ROOT_PATH, route[resource_path].lstrip("/")))
+                file_path = os.path.normpath(
+                    os.path.join(ROOT_PATH, route[resource_path].lstrip("/"))
+                )
                 content_type = get_mime_type(file_path)
                 content_length = get_res_content_length(file_path, is_path=True)
                 response_header = f"HTTP/1.1 200 {get_status_texts(200)}\r\nContent-Length: {content_length}\r\nContent-Type: {content_type}\r\n\r\n"
-                client_socket.sendall(response_header.encode('utf-8'))
+                client_socket.sendall(response_header.encode("utf-8"))
     else:
         serve_error_page(client_socket, 404)
 
@@ -183,7 +197,12 @@ def handle_directory_listing(client_socket, directory_path, url_path):
             serve_error_page(client_socket, 404)
         else:
             send_http_response(
-                client_socket, page, 200, get_status_texts(200), get_res_content_length(page), "text/html"
+                client_socket,
+                page,
+                200,
+                get_status_texts(200),
+                get_res_content_length(page),
+                "text/html",
             )
     elif os.path.isfile(decoded_path):
         serve_file(client_socket, decoded_path, True)
@@ -202,7 +221,12 @@ def serve_file(client_socket, file_path: str, directory_serve=False):
                 with open(norm_path, "r") as f:
                     data = f.read()
                     send_http_response(
-                        client_socket, data, 200, get_status_texts(200), get_res_content_length(data), mime_type
+                        client_socket,
+                        data,
+                        200,
+                        get_status_texts(200),
+                        get_res_content_length(data),
+                        mime_type,
                     )
             except FileNotFoundError:
                 print("File does not exist")
@@ -224,13 +248,23 @@ def serve_file(client_socket, file_path: str, directory_serve=False):
                 with open(norm_path_d, "rb") as f:
                     data = f.read()
                     send_http_response(
-                        client_socket, data, 200, get_status_texts(200), get_res_content_length(data), mime_type
+                        client_socket,
+                        data,
+                        200,
+                        get_status_texts(200),
+                        get_res_content_length(data),
+                        mime_type,
                     )
             else:
                 with open(norm_path_d, "r") as f:
                     data = f.read()
                     send_http_response(
-                        client_socket, data, 200, get_status_texts(200), get_res_content_length(data), mime_type
+                        client_socket,
+                        data,
+                        200,
+                        get_status_texts(200),
+                        get_res_content_length(data),
+                        mime_type,
                     )
         except FileNotFoundError:
             print("File does not exist")
@@ -243,7 +277,12 @@ def serve_file(client_socket, file_path: str, directory_serve=False):
 def serve_error_page(client_socket, error_code):
     err_page = create_error_page(error_code)
     send_http_response(
-        client_socket, err_page, error_code, get_status_texts(error_code), get_res_content_length(err_page), "text/html"
+        client_socket,
+        err_page,
+        error_code,
+        get_status_texts(error_code),
+        get_res_content_length(err_page),
+        "text/html",
     )
 
 
