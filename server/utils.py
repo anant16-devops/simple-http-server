@@ -243,8 +243,8 @@ def get_mime_type(path_file_name):
     return mime_type_dict.get(extension, "application/octet-stream")
 
 
-def parse_path(path, quote=True):
-    if quote:
+def parse_path(path, encode=True):
+    if encode:
         return urllib.parse.quote(path)
     else:
         return urllib.parse.unquote(path)
