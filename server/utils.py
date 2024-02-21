@@ -134,31 +134,6 @@ def create_error_page(error_code):
     return html_page
 
 
-# def parse_header(request):
-#     try:
-#         decoded_data: str = request.decode("utf-8")
-#     except UnicodeDecodeError:
-#         error = "Error Decoding response to utf-8"
-#         print(error)
-#         return {}
-#     decoded_data = decoded_data.replace("\r\n", "\n")
-#     try:
-#         header = decoded_data.strip("\n\n")
-#         requestline, *metadata = header.split("\n")
-#         method, path, http_version = requestline.split(" ")
-#         metadata = {i.split(": ")[0].lower(): i.split(": ")[1] for i in metadata}
-#     except ValueError or IndexError:
-#         print("Incorrect http request format")
-#         return {}
-
-#     return {
-#         "method": method,
-#         "path": path,
-#         "http_version": http_version,
-#         "metadata": metadata,
-#     }
-
-
 def parse_body(request):
     pass
 
