@@ -1,7 +1,21 @@
 import argparse
 import re
 import os
+import sys
 import urllib.parse
+import logging
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+formatter = logging.Formatter(
+    "[%(asctime)s] %(levelname)s: %(message)s at line %(lineno)d in %(module)s"
+)
+
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setFormatter(formatter)
+
+logger.addHandler(console_handler)
 
 
 def get_status_texts(status_code):
@@ -93,7 +107,7 @@ def get_res_content_length(response, is_path=False):
                     return len(f.read())
 
         except FileNotFoundError:
-            print("File not found")
+            logger.warning("File not found")
     else:
         return len(response)
 
@@ -103,7 +117,7 @@ def create_dirlist_page(directory_path, url_path):
     try:
         directory_contents = os.listdir(directory_path)
     except FileNotFoundError:
-        print(f"{url_path} not found")
+        logger.warning(f"{url_path} not found")
         return
 
     html_page = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Directory Listing</title></head>'
@@ -143,7 +157,7 @@ def parse_request(request):
         decoded_data: str = request.decode("utf-8")
     except UnicodeDecodeError:
         error = "Error Decoding response to utf-8"
-        print(error)
+        logger.error(error)
         return {}
 
     decoded_data = decoded_data.replace("\r\n", "\n")
@@ -153,10 +167,10 @@ def parse_request(request):
         method, path, http_version = request_line.split(" ")
         metadata = {i.split(": ")[0].lower(): i.split(": ")[1] for i in metadata}
     except ValueError:
-        print("Incorrect http request format")
+        logger.error("Incorrect http request format")
         return {}
     except IndexError:
-        print("Incorrect http request format")
+        logger.error("Incorrect http request format")
         return {}
 
     return {
