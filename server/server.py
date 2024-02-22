@@ -1,7 +1,8 @@
 import socket
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from routes import routes
+import sys
+from routes.routes import routes
 import os
 from .utils import (
     get_allowed_headers,
@@ -19,10 +20,21 @@ from .utils import (
 
 ROOT_PATH = "./static/"
 MAX_THREADS = 10
+TIMEOUT_VAL = 10
+BYTES_RECV_AMT = 2048
 
 
-def setup_logger():
-    pass
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+formatter = logging.Formatter(
+    "[%(asctime)s] - %(levelname)s: %(message)s", datefmt="%d-%b-%Y %H:%M:%S"
+)
+
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setFormatter(formatter)
+
+logger.addHandler(console_handler)
 
 
 def start_server():
@@ -32,22 +44,28 @@ def start_server():
         try:
             sock.bind((host, port))
             sock.listen()
-            print(f"Listening on {host}:{port}")
+            logger.info(
+                f"Server Listening on {host} port {port} (http://{host}:{port}/)"
+            )
 
             while True:
                 c_socket, c_address = sock.accept()
-                print(f"Connected to {c_address}")
-                executor.submit(handle_request, c_socket, directory)
+                # logger.info(f"Connected to {c_address}")
+                executor.submit(handle_request, c_socket, c_address, directory)
         except KeyboardInterrupt:
-            print("Server terminated by user")
+            logger.info("Server terminated by user")
+        except OSError as oe:
+            logger.error(oe)
         # except Exception as e:
         #         print(f"Error: {e}")
         finally:
+            logger.info("Connection Closed")
             sock.close()
 
 
 def send_http_response(
     client_socket,
+    client_address,
     response_body,
     status_code,
     status_message,
@@ -65,10 +83,10 @@ def send_http_response(
             client_socket.sendall(response.encode(encoding))
 
     except BrokenPipeError as pipe_error:
-        alt_message = "Connection has been Terminated"
+        alt_message = f"Connection has been Terminated with client {client_address}"
         if hasattr(pipe_error, "args") and pipe_error.args:
             alt_message += f"\nAdditional Details: {', '.join(str(args) for args in pipe_error.args)}"
-        print(alt_message)
+        logger.warning(alt_message)
 
 
 def handle_unsupported_request(client_socket):
@@ -83,14 +101,14 @@ def handle_unsupported_request(client_socket):
     )
 
 
-def handle_request(client_socket: socket.socket, directory=None):
+def handle_request(client_socket: socket.socket, client_address, directory=None):
     buffer = b""
-    client_socket.settimeout(10)
+    client_socket.settimeout(TIMEOUT_VAL)
     try:
         body_buffer = None
         with client_socket:
             while True:
-                data = client_socket.recv(1024)
+                data = client_socket.recv(BYTES_RECV_AMT)
                 if not data:
                     break
                 buffer += data
@@ -103,15 +121,15 @@ def handle_request(client_socket: socket.socket, directory=None):
                     has_contentlength = get_req_content_length(header_buffer)
                     if has_contentlength:
                         while len(body_buffer) < has_contentlength:
-                            body_data = client_socket.recv(1024)
+                            body_data = client_socket.recv(BYTES_RECV_AMT)
                             if not body_data:
                                 break
                             body_buffer += body_data
                             buffer += body_buffer
                     break
 
-            print(buffer)
-            print("body buffer: ", body_buffer)
+            # print(buffer)
+            # print("body buffer: ", body_buffer)
             # parsed_header = parse_header(header_buffer)
 
             # parsed_body = parse_body(body_buffer)
@@ -121,34 +139,47 @@ def handle_request(client_socket: socket.socket, directory=None):
                 message = "Incorrect http request format"
                 send_http_response(
                     client_socket,
+                    client_address,
                     message,
                     400,
                     get_status_texts(400),
                     get_res_content_length(message),
                 )
-            print(request_data)
+                logger.error(
+                    f"{client_address[0]} 400 {get_status_texts(400)}, message: Incorrect http request format"
+                )
+            # print(request_data)
 
             if request_data["headers"].get("method") == "GET":
                 handle_get_request(
-                    client_socket, request_data.get("headers"), directory
+                    client_socket,
+                    client_address,
+                    request_data.get("headers"),
+                    directory,
                 )
             elif request_data["headers"].get("method") == "HEAD":
-                handle_head_request(client_socket, request_data.get("headers"))
+                handle_head_request(
+                    client_socket, client_address, request_data.get("headers")
+                )
             else:
+                logger.error(
+                    f"{client_address[0]} - {request_data['headers'].get('method')} {request_data['headers'].get('path')} 501"
+                )
                 handle_unsupported_request(client_socket)
 
     except KeyError:
-        print("Failed to Parse request")
+        logger.error("Failed to Parse request")
 
     except socket.timeout:
-        print("Connection Timeout")
+        logger.info(f"Connection Timeout for client {client_address[0]}")
 
 
-def handle_get_request(client_socket, getreq_data, directory):
-    print(f"\nMetadata dictionary: {getreq_data.get('metadata')}\n")
+def handle_get_request(client_socket, client_address, getreq_data, directory):
+    # print(f"\nMetadata dictionary: {getreq_data.get('metadata')}\n")
     path = getreq_data.get("path")
+    method = getreq_data.get("method")
     if directory:
-        handle_directory_listing(client_socket, directory, path)
+        handle_directory_listing(client_socket, client_address, directory, path)
     else:
         allowed_headers = get_allowed_headers()
         accept_headers = getreq_data.get("metadata").get("accept")
@@ -158,27 +189,49 @@ def handle_get_request(client_socket, getreq_data, directory):
                 os.path.join(ROOT_PATH, parse_path(path, encode=False).lstrip("/"))
             )
             if os.path.isfile(clean_path):
-                serve_file(client_socket, parse_path(path, encode=False))
+                # logger.info(
+                #     f"{client_address} {method} {parse_path(path, encode=False)}"
+                # )
+                serve_file(
+                    client_socket,
+                    client_address,
+                    parse_path(path, encode=False),
+                    parse_path(path, encode=False),
+                )
             else:
                 if any(path in route for route in routes):
                     for route in routes:
                         if route.get(path, ""):
-                            serve_file(client_socket, route[path])
+                            # logger.info(
+                            #     f"{client_address} {method} {parse_path(path, encode=False)}"
+                            # )
+                            serve_file(
+                                client_socket,
+                                client_address,
+                                route[path],
+                                parse_path(path, encode=False),
+                            )
                 else:
-                    serve_error_page(client_socket, 404)
+                    logger.info(
+                        f"{client_address[0]} - {method} {parse_path(path, encode=False)} 404"
+                    )
+                    serve_error_page(client_socket, client_address, 404)
         else:
             message = "415 Unsupported Media Type"
             send_http_response(
                 client_socket,
+                client_address,
                 message,
                 415,
                 get_status_texts(415),
                 get_res_content_length(message),
             )
+            logger.error("415 Unsupported Media Type")
 
 
-def handle_head_request(client_socket, req_headers):
+def handle_head_request(client_socket, client_address, req_headers):
     resource_path = req_headers.get("path")
+    resource_method = req_headers.get("method")
     if any(resource_path in route for route in routes):
         for route in routes:
             if route.get(resource_path, ""):
@@ -189,36 +242,60 @@ def handle_head_request(client_socket, req_headers):
                 content_length = get_res_content_length(file_path, is_path=True)
                 response_header = f"HTTP/1.1 200 {get_status_texts(200)}\r\nContent-Length: {content_length}\r\nContent-Type: {content_type}\r\n\r\n"
                 client_socket.sendall(response_header.encode("utf-8"))
+                logger.info(
+                    f"{client_address[0]} - {resource_method} {parse_path(resource_path, encode=False)}"
+                )
     else:
-        serve_error_page(client_socket, 404)
+        serve_error_page(client_socket, client_address, 404)
+        logger.info(
+            f"{client_address[0]} - {resource_method} {parse_path(resource_path, encode=False)} 404"
+        )
 
 
-def handle_directory_listing(client_socket, directory_path, url_path):
+def handle_directory_listing(client_socket, client_address, directory_path, url_path):
     stripped_urL_path = url_path.lstrip("/")
     combined_path = os.path.normpath(os.path.join(directory_path, stripped_urL_path))
     decoded_path = parse_path(combined_path, False)
     if os.path.isdir(combined_path):
         page = create_dirlist_page(combined_path, stripped_urL_path)
         if not page:
-            serve_error_page(client_socket, 404)
+            logger.info(
+                f"{client_address[0]} - GET {parse_path(url_path, encode=False)} 404"
+            )
+            serve_error_page(client_socket, client_address, 404)
         else:
             send_http_response(
                 client_socket,
+                client_address,
                 page,
                 200,
                 get_status_texts(200),
                 get_res_content_length(page),
                 "text/html",
             )
+            logger.info(
+                f"{client_address[0]} - GET {parse_path(url_path, encode=False)} 200"
+            )
     elif os.path.isfile(decoded_path):
-        serve_file(client_socket, decoded_path, True)
+        # logger.info(f"{client_address} - GET {parse_path(url_path, encode=False)}")
+        serve_file(
+            client_socket,
+            client_address,
+            decoded_path,
+            parse_path(url_path, encode=False),
+            True,
+        )
     else:
-        message = "Directory or file not found"
-        serve_error_page(client_socket, 404)
-        print(message)
+        # message = "Directory or file not found"
+        serve_error_page(client_socket, client_address, 404)
+        logger.info(
+            f"{client_address[0]} - GET {parse_path(url_path, encode=False)} 404"
+        )
 
 
-def serve_file(client_socket, file_path: str, directory_serve=False):
+def serve_file(
+    client_socket, client_address, file_path: str, request_line, directory_serve=False
+):
     if not directory_serve:
         norm_path = os.path.normpath(os.path.join(ROOT_PATH, file_path.lstrip("/")))
         mime_type = get_mime_type(norm_path)
@@ -228,24 +305,40 @@ def serve_file(client_socket, file_path: str, directory_serve=False):
                     data = f.read()
                     send_http_response(
                         client_socket,
+                        client_address,
                         data,
                         200,
                         get_status_texts(200),
                         get_res_content_length(data),
                         mime_type,
                     )
+                    logger.info(
+                        f"{client_address[0]} - GET {parse_path(request_line, encode=False)} 200"
+                    )
             except FileNotFoundError:
-                print("File does not exist")
-                serve_error_page(client_socket, 404)
+                # print("File does not exist")
+                logger.warning(
+                    f"{client_address[0]} - GET {parse_path(norm_path, encode=False)} 404 {get_status_texts(404)}"
+                )
+                serve_error_page(client_socket, client_address, 404)
             except UnicodeDecodeError:
-                print(f"UnicodeDecodeError on file {norm_path}")
-                serve_error_page(client_socket, 500)
+                logger.error(
+                    f"{client_address[0]} - GET {parse_path(norm_path, encode=False)} 500 {get_status_texts(500)}"
+                )
+                logger.error(f"UnicodeDecodeError on file {norm_path}")
+                serve_error_page(client_socket, client_address, 500)
             except UnicodeEncodeError:
-                print(f"UnicodeEncodeError on file {norm_path}")
-                serve_error_page(client_socket, 500)
+                logger.error(
+                    f"{client_address[0]} - GET {parse_path(norm_path, encode=False)} 500 {get_status_texts(500)}"
+                )
+                logger.error(f"UnicodeEncodeError on file {norm_path}")
+                serve_error_page(client_socket, client_address, 500)
         else:
-            print("File does not exist")
-            serve_error_page(client_socket, 404)
+            # print("File does not exist")
+            logger.info(
+                f"{client_address[0]} - GET {parse_path(norm_path, encode=False)} 404 {get_status_texts(404)}"
+            )
+            serve_error_page(client_socket, client_address, 404)
     else:
         norm_path_d = os.path.normpath(file_path)
         mime_type = get_mime_type(norm_path_d)
@@ -255,35 +348,51 @@ def serve_file(client_socket, file_path: str, directory_serve=False):
                     data = f.read()
                     send_http_response(
                         client_socket,
+                        client_address,
                         data,
                         200,
                         get_status_texts(200),
                         get_res_content_length(data),
                         mime_type,
+                    )
+                    logger.info(
+                        f"{client_address[0]} - GET {parse_path(request_line, encode=False)} 200"
                     )
             else:
                 with open(norm_path_d, "r") as f:
                     data = f.read()
                     send_http_response(
                         client_socket,
+                        client_address,
                         data,
                         200,
                         get_status_texts(200),
                         get_res_content_length(data),
                         mime_type,
                     )
+                    logger.info(
+                        f"{client_address[0]} - GET {parse_path(request_line, encode=False)} 200"
+                    )
         except FileNotFoundError:
-            print("File does not exist")
-            serve_error_page(client_socket, 404)
+            # print("File does not exist")
+            logger.warning(
+                f"{client_address[0]} - GET {parse_path(norm_path_d, encode=False)} 404 {get_status_texts(404)}"
+            )
+            serve_error_page(client_socket, client_address, 404)
         except UnicodeDecodeError:
-            print(f"UnicodeDecodeError on file {norm_path_d}")
-            serve_error_page(client_socket, 500)
+            logger.error(
+                f"{client_address[0]} - GET {parse_path(norm_path_d, encode=False)} 500 {get_status_texts(500)}"
+            )
+            logger.error(f"UnicodeDecodeError on file {norm_path_d}")
+            # print(f"UnicodeDecodeError on file {norm_path_d}")
+            serve_error_page(client_socket, client_address, 500)
 
 
-def serve_error_page(client_socket, error_code):
+def serve_error_page(client_socket, client_address, error_code):
     err_page = create_error_page(error_code)
     send_http_response(
         client_socket,
+        client_address,
         err_page,
         error_code,
         get_status_texts(error_code),
