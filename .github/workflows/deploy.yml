@@ -49,9 +49,19 @@ jobs:
     - name: Terraform Init
       run: terraform init
     
+    - name: Terraform Validate
+      run: terraform validate
+    
+    - name: Debug Variables
+      run: |
+        echo "AWS Region: ${{ env.AWS_REGION }}"
+        echo "Key Name: ${{ secrets.AWS_KEY_NAME }}"
+        echo "Working Directory: $(pwd)"
+        ls -la
+    
     - name: Terraform Plan
       run: |
-        terraform plan \
+        terraform plan -detailed-exitcode \
           -var="key_name=${{ secrets.AWS_KEY_NAME }}" \
           -var="aws_region=${{ env.AWS_REGION }}" \
           -out=tfplan

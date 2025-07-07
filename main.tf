@@ -46,19 +46,10 @@ resource "aws_instance" "web_server" {
   
   vpc_security_group_ids = [aws_security_group.demo-web-sg.id]
   
-  user_data = base64encode(templatefile("${path.module}/user_data.sh", {
-    app_files = filebase64(data.archive_file.app_source.output_path)
-  }))
+  user_data = base64encode(file("${path.module}/user_data_simple.sh"))
   
   tags = {
     Name = "Simple HTTP Server"
   }
 }
 
-# Archive application files
-data "archive_file" "app_source" {
-  type        = "zip"
-  source_dir  = "${path.module}"
-  output_path = "${path.module}/app.zip"
-  excludes    = ["*.tf", "*.tfvars", "user_data.sh", "app.zip", ".terraform*"]
-}
