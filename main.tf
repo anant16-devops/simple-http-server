@@ -12,8 +12,8 @@ provider "aws" {
 }
 
 # Security Group
-resource "aws_security_group" "demo-web_sg" {
-  name        = "demo-web_sg"
+resource "aws_security_group" "demo-web-sg" {
+  name        = "demo-web-sg"
   description = "Security group for HTTP server"
   
   ingress {
@@ -44,7 +44,7 @@ resource "aws_instance" "web_server" {
   instance_type = var.instance_type
   key_name      = var.key_name
   
-  vpc_security_group_ids = [aws_security_group.web_sg.id]
+  vpc_security_group_ids = [aws_security_group.demo-web-sg.id]
   
   user_data = base64encode(templatefile("${path.module}/user_data.sh", {
     app_files = base64encode(data.archive_file.app_source.output_base64)
