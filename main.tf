@@ -11,6 +11,22 @@ provider "aws" {
   region = var.aws_region
 }
 
+# Get latest Amazon Linux 2023 AMI
+data "aws_ami" "amazon_linux" {
+  most_recent = true
+  owners      = ["amazon"]
+  
+  filter {
+    name   = "name"
+    values = ["al2023-ami-*-x86_64"]
+  }
+  
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+}
+
 # Security Group
 resource "aws_security_group" "demo-web-sg" {
   name        = "demo-web-sg"
@@ -40,10 +56,9 @@ resource "aws_security_group" "demo-web-sg" {
 
 # EC2 Instance
 resource "aws_instance" "web_server" {
-  ami           = var.ami_id
-  instance_type = var.instance_type
-  key_name      = var.key_name
-  
+  ami                    = data.aws_ami.amazon_linux.id
+  instance_type          = var.instance_type
+  key_name              = var.key_name
   vpc_security_group_ids = [aws_security_group.demo-web-sg.id]
   
   user_data = base64encode(file("${path.module}/user_data_simple.sh"))
