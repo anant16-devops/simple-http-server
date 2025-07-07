@@ -47,7 +47,7 @@ resource "aws_instance" "web_server" {
   vpc_security_group_ids = [aws_security_group.demo-web-sg.id]
   
   user_data = base64encode(templatefile("${path.module}/user_data.sh", {
-    app_files = base64encode(data.archive_file.app_source.output_base64)
+    app_files = filebase64(data.archive_file.app_source.output_path)
   }))
   
   tags = {
